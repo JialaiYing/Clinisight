@@ -6,14 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ApiError, simulatePatient } from "@/lib/api";
+import { DRUG_CATALOG, drugLabel } from "@/lib/drugs";
 import {
   OUTCOME_LABELS,
   clearedActionKeys,
@@ -27,68 +21,43 @@ import {
 } from "@/lib/risk";
 import { cn } from "@/lib/utils";
 import type { PatientFormValues } from "@/lib/validation";
-import type { MedicationClass, PredictionResponse } from "@/lib/types";
+import type { PredictionResponse } from "@/lib/types";
 
-type MedFlag = "on_nsaid" | "on_ace_inhibitor" | "on_anticoagulant" | "on_insulin";
-
-type MedScenario = Pick<
-  PatientFormValues,
-  "medication_class" | "num_concurrent_meds" | MedFlag
->;
-
-const FLAG_LABELS: Record<MedFlag, string> = {
-  on_nsaid: "NSAID",
-  on_ace_inhibitor: "ACE inhibitor",
-  on_anticoagulant: "Anticoagulant",
-  on_insulin: "Insulin",
-};
-
-const CLASS_LABELS: Record<MedicationClass, string> = {
-  none: "None",
-  antihypertensive: "Antihypertensive",
-  antidiabetic: "Antidiabetic",
-  antibiotic: "Antibiotic",
-  analgesic: "Analgesic",
-};
+type MedScenario = Pick<PatientFormValues, "medications" | "num_concurrent_meds">;
 
 function pickMeds(patient: PatientFormValues): MedScenario {
   return {
-    medication_class: patient.medication_class,
+    medications: [...(patient.medications ?? [])],
     num_concurrent_meds: patient.num_concurrent_meds,
-    on_nsaid: patient.on_nsaid,
-    on_ace_inhibitor: patient.on_ace_inhibitor,
-    on_anticoagulant: patient.on_anticoagulant,
-    on_insulin: patient.on_insulin,
   };
+}
+
+function sortedMedKey(meds: string[]): string {
+  return [...meds].sort().join("|");
 }
 
 function medsEqual(a: MedScenario, b: MedScenario): boolean {
   return (
-    a.medication_class === b.medication_class &&
     a.num_concurrent_meds === b.num_concurrent_meds &&
-    a.on_nsaid === b.on_nsaid &&
-    a.on_ace_inhibitor === b.on_ace_inhibitor &&
-    a.on_anticoagulant === b.on_anticoagulant &&
-    a.on_insulin === b.on_insulin
+    sortedMedKey(a.medications) === sortedMedKey(b.medications)
   );
 }
 
 function describeMedChanges(baseline: MedScenario, scenario: MedScenario): string[] {
   const changes: string[] = [];
-  if (baseline.medication_class !== scenario.medication_class) {
-    changes.push(
-      `Class ${CLASS_LABELS[baseline.medication_class]} → ${CLASS_LABELS[scenario.medication_class]}`
-    );
+  const before = new Set(baseline.medications);
+  const after = new Set(scenario.medications);
+  for (const id of after) {
+    if (!before.has(id)) changes.push(`Added ${drugLabel(id)}`);
+  }
+  for (const id of before) {
+    if (!after.has(id)) changes.push(`Removed ${drugLabel(id)}`);
   }
   if (baseline.num_concurrent_meds !== scenario.num_concurrent_meds) {
     changes.push(
       `Concurrent meds ${baseline.num_concurrent_meds} → ${scenario.num_concurrent_meds}`
     );
   }
-  (Object.keys(FLAG_LABELS) as MedFlag[]).forEach((key) => {
-    if (baseline[key] === scenario[key]) return;
-    changes.push(scenario[key] ? `Added ${FLAG_LABELS[key]}` : `Removed ${FLAG_LABELS[key]}`);
-  });
   return changes;
 }
 
@@ -111,13 +80,6 @@ export function WhatIfSimulator({
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
 
-  useEffect(() => {
-    setScenario(baselineMeds);
-    setSimulated(null);
-    setError(null);
-    setIsSimulating(false);
-  }, [baselineMeds]);
-
   const hasChanges = !medsEqual(scenario, baselineMeds);
   const changeSummary = useMemo(
     () => (hasChanges ? describeMedChanges(baselineMeds, scenario) : []),
@@ -125,12 +87,9 @@ export function WhatIfSimulator({
   );
 
   useEffect(() => {
-    if (!hasChanges) {
-      setSimulated(null);
-      setError(null);
-      setIsSimulating(false);
-      return;
-    }
+    // Nothing to compare yet; render already gates all simulated-result UI on
+    // hasChanges, so no state to clear here.
+    if (!hasChanges) return;
 
     const id = ++requestId.current;
     const timer = window.setTimeout(async () => {
@@ -193,9 +152,26 @@ export function WhatIfSimulator({
     return { before, after, delta: after - before };
   }, [baselineResult.recommendations, simulated]);
 
-  const setFlag = (key: MedFlag, value: boolean) => {
-    setScenario((prev) => ({ ...prev, [key]: value }));
+  const toggleDrug = (drugId: string, checked: boolean) => {
+    setScenario((prev) => {
+      const medications = checked
+        ? prev.medications.includes(drugId)
+          ? prev.medications
+          : [...prev.medications, drugId]
+        : prev.medications.filter((id) => id !== drugId);
+      let num_concurrent_meds = prev.num_concurrent_meds;
+      if (checked) {
+        num_concurrent_meds = Math.max(num_concurrent_meds, medications.length);
+      } else {
+        // Shrink total count with removals, but never below curated selection size.
+        num_concurrent_meds = Math.max(medications.length, num_concurrent_meds - 1);
+      }
+      return { medications, num_concurrent_meds };
+    });
   };
+
+  const alerts =
+    (hasChanges ? simulated?.interaction_alerts : baselineResult.interaction_alerts) ?? [];
 
   return (
     <div>
@@ -203,12 +179,13 @@ export function WhatIfSimulator({
         <div>
           <h3
             id="what-if-heading"
-            className="text-xs tracking-wide text-muted-foreground uppercase"
+            className="text-sm font-semibold tracking-wide text-foreground uppercase"
           >
             3. Medication what-if
           </h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            Adjust medications to compare risk against the baseline report above.
+            Toggle curated drugs to compare risk against the baseline report. Try removing
+            ibuprofen or adding spironolactone on an ACE inhibitor.
           </p>
         </div>
         <Button
@@ -223,72 +200,63 @@ export function WhatIfSimulator({
         </Button>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="space-y-1.5 sm:col-span-1 lg:col-span-2">
-          <Label htmlFor="sim-medication_class">Medication class</Label>
-          <Select
-            value={scenario.medication_class}
-            onValueChange={(v) =>
-              setScenario((prev) => ({
-                ...prev,
-                medication_class: v as MedicationClass,
-              }))
+      <div className="mt-5 max-w-xs space-y-1.5">
+        <Label htmlFor="sim-num_concurrent_meds">Total concurrent medications</Label>
+        <Input
+          id="sim-num_concurrent_meds"
+          type="number"
+          min={0}
+          max={30}
+          className="font-mono"
+          value={scenario.num_concurrent_meds}
+          onChange={(e) => {
+            const raw = e.target.value;
+            if (raw === "") {
+              setScenario((prev) => ({ ...prev, num_concurrent_meds: 0 }));
+              return;
             }
-          >
-            <SelectTrigger id="sim-medication_class" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(CLASS_LABELS) as MedicationClass[]).map((value) => (
-                <SelectItem key={value} value={value}>
-                  {CLASS_LABELS[value]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5 sm:col-span-1 lg:col-span-2">
-          <Label htmlFor="sim-num_concurrent_meds">Concurrent medications</Label>
-          <Input
-            id="sim-num_concurrent_meds"
-            type="number"
-            min={0}
-            max={30}
-            className="max-w-[12rem] font-mono"
-            value={scenario.num_concurrent_meds}
-            onChange={(e) => {
-              const raw = e.target.value;
-              if (raw === "") {
-                setScenario((prev) => ({ ...prev, num_concurrent_meds: 0 }));
-                return;
-              }
-              const n = e.target.valueAsNumber;
-              if (!Number.isFinite(n)) return;
-              setScenario((prev) => ({
-                ...prev,
-                num_concurrent_meds: clampConcurrentMeds(n),
-              }));
-            }}
-          />
-        </div>
+            const n = e.target.valueAsNumber;
+            if (!Number.isFinite(n)) return;
+            setScenario((prev) => ({
+              ...prev,
+              num_concurrent_meds: clampConcurrentMeds(n),
+            }));
+          }}
+        />
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
-        {(Object.keys(FLAG_LABELS) as MedFlag[]).map((key) => (
-          <label
-            key={key}
-            htmlFor={`sim-${key}`}
-            className="flex items-center gap-2 text-sm text-foreground"
-          >
-            <Checkbox
-              id={`sim-${key}`}
-              checked={scenario[key]}
-              onCheckedChange={(checked) => setFlag(key, checked === true)}
-            />
-            {FLAG_LABELS[key]}
-          </label>
-        ))}
+      <div className="mt-4 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+        {DRUG_CATALOG.map((drug) => {
+          const checked = scenario.medications.includes(drug.id);
+          return (
+            <label
+              key={drug.id}
+              htmlFor={`sim-${drug.id}`}
+              className="flex items-center gap-2 text-sm text-foreground"
+            >
+              <Checkbox
+                id={`sim-${drug.id}`}
+                checked={checked}
+                onCheckedChange={(value) => toggleDrug(drug.id, value === true)}
+              />
+              {drug.label}
+            </label>
+          );
+        })}
       </div>
+
+      {alerts.length > 0 && (
+        <ul className="mt-5 space-y-1.5 border border-border bg-muted/30 px-3 py-3">
+          {alerts.map((alert) => (
+            <li key={`${alert.outcome}-${alert.message}`} className="text-sm text-foreground">
+              <span className="mr-2 text-xs font-medium text-muted-foreground uppercase">
+                {OUTCOME_LABELS[alert.outcome] ?? alert.outcome}
+              </span>
+              {alert.message}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {!hasChanges && (
         <p className="mt-5 text-sm text-muted-foreground">
@@ -309,7 +277,7 @@ export function WhatIfSimulator({
         </p>
       )}
 
-      {error && (
+      {error && hasChanges && (
         <div className="mt-4 flex items-start gap-2 text-sm text-destructive">
           <AlertCircle className="mt-0.5 size-4 shrink-0" />
           <span>{error}</span>
@@ -341,8 +309,7 @@ export function WhatIfSimulator({
                 :{" "}
                 <span className="font-mono" style={{ color: "var(--risk-safe)" }}>
                   {formatPercent(biggestDrop.before)} → {formatPercent(biggestDrop.after)}
-                </span>
-                {" "}
+                </span>{" "}
                 <span style={{ color: "var(--risk-safe)" }}>
                   ({formatRiskChange(biggestDrop.delta).toLowerCase()})
                 </span>
@@ -387,7 +354,6 @@ export function WhatIfSimulator({
                     meaningful && "bg-muted/40"
                   )}
                 >
-                  {/* Mobile: plain-language stack */}
                   <div className="flex items-start justify-between gap-3 md:hidden">
                     <span
                       className={cn(
@@ -412,7 +378,6 @@ export function WhatIfSimulator({
                     </div>
                   </div>
 
-                  {/* Desktop: aligned columns */}
                   <div className="hidden grid-cols-[minmax(0,1fr)_5rem_5rem_7.5rem] items-baseline gap-3 md:grid">
                     <span
                       className={cn(

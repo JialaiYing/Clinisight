@@ -20,9 +20,10 @@ export const DEMO_PERSONAS: DemoPersona[] = [
   {
     id: "margaret-chen",
     name: "Margaret Chen",
-    tagline: "72F · CKD · ACE-I + NSAID",
-    setting: "Inpatient — pain order",
-    blurb: "CKD on an ACE inhibitor; NSAID just added for back pain. High AKI / hyperkalemia risk.",
+    tagline: "72F · CKD · lisinopril + ibuprofen",
+    setting: "Inpatient · pain order",
+    blurb:
+      "CKD on lisinopril; ibuprofen just added for back pain. High AKI / hyperkalemia risk. Try swapping to acetaminophen.",
     values: {
       age: 72,
       sex: "female",
@@ -45,20 +46,17 @@ export const DEMO_PERSONAS: DemoPersona[] = [
       ckd: true,
       liver_disease: false,
       heart_failure: false,
-      medication_class: "analgesic",
+      medications: ["lisinopril", "ibuprofen", "metformin"],
       num_concurrent_meds: 7,
-      on_nsaid: true,
-      on_ace_inhibitor: true,
-      on_anticoagulant: false,
-      on_insulin: false,
     },
   },
   {
     id: "james-okonkwo",
     name: "James Okonkwo",
-    tagline: "58M · HF · polypharmacy",
-    setting: "Inpatient — new antibiotic",
-    blurb: "Heart failure with a long med list; QT and bleeding risk climb if therapy stacks further.",
+    tagline: "58M · HF · warfarin + QT stack",
+    setting: "Inpatient · new antibiotic",
+    blurb:
+      "Heart failure on warfarin with azithromycin + ondansetron. QT and bleeding risk climb if therapy stacks further.",
     values: {
       age: 58,
       sex: "male",
@@ -81,20 +79,23 @@ export const DEMO_PERSONAS: DemoPersona[] = [
       ckd: false,
       liver_disease: false,
       heart_failure: true,
-      medication_class: "antibiotic",
+      medications: [
+        "lisinopril",
+        "warfarin",
+        "azithromycin",
+        "ondansetron",
+        "furosemide",
+      ],
       num_concurrent_meds: 9,
-      on_nsaid: false,
-      on_ace_inhibitor: true,
-      on_anticoagulant: true,
-      on_insulin: false,
     },
   },
   {
     id: "rosa-alvarez",
     name: "Rosa Alvarez",
-    tagline: "64F · diabetes · insulin",
-    setting: "Inpatient — glycemic control",
-    blurb: "Insulin-treated diabetes with reduced kidney clearance. Hypoglycemia risk on the current regimen.",
+    tagline: "64F · diabetes · insulin + ACE-I",
+    setting: "Inpatient · glycemic control",
+    blurb:
+      "Insulin-treated diabetes with reduced kidney clearance. Hypoglycemia risk. Try removing glipizide or lowering intensity.",
     values: {
       age: 64,
       sex: "female",
@@ -117,12 +118,8 @@ export const DEMO_PERSONAS: DemoPersona[] = [
       ckd: true,
       liver_disease: false,
       heart_failure: false,
-      medication_class: "antidiabetic",
+      medications: ["insulin", "lisinopril", "metformin", "glipizide"],
       num_concurrent_meds: 6,
-      on_nsaid: false,
-      on_ace_inhibitor: true,
-      on_anticoagulant: false,
-      on_insulin: true,
     },
   },
 ];
@@ -130,4 +127,38 @@ export const DEMO_PERSONAS: DemoPersona[] = [
 export const PRIMARY_PERSONA = DEMO_PERSONAS[0];
 
 /** Form default = primary demo persona so the app opens on a theatrical case. */
-export const defaultPatientValues: PatientFormValues = PRIMARY_PERSONA.values;
+export const defaultPatientValues: PatientFormValues = {
+  ...PRIMARY_PERSONA.values,
+  medications: [...PRIMARY_PERSONA.values.medications],
+};
+
+/**
+ * Blank slate for the Clear button. NaN is intentional: number inputs
+ * sanitize an unparsable value to an empty string, so every field renders
+ * empty instead of showing a placeholder "0".
+ */
+export const blankPatientValues: PatientFormValues = {
+  age: Number.NaN,
+  sex: "female",
+  bmi: Number.NaN,
+  heart_rate: Number.NaN,
+  sbp: Number.NaN,
+  dbp: Number.NaN,
+  temperature: Number.NaN,
+  creatinine: Number.NaN,
+  potassium: Number.NaN,
+  sodium: Number.NaN,
+  ast: Number.NaN,
+  alt: Number.NaN,
+  hemoglobin: Number.NaN,
+  wbc: Number.NaN,
+  platelets: Number.NaN,
+  glucose: Number.NaN,
+  diabetes: false,
+  hypertension: false,
+  ckd: false,
+  liver_disease: false,
+  heart_failure: false,
+  medications: [],
+  num_concurrent_meds: Number.NaN,
+};

@@ -1,6 +1,21 @@
-import type { PatientInput, PredictionResponse } from "@/lib/types";
+import type { ModelMetrics, PatientInput, PredictionResponse } from "@/lib/types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+// Loading the app from another device on the LAN (e.g. http://10.0.0.4:3000)
+// means "127.0.0.1" in the browser refers to that device, not this machine.
+// Fall back to whatever host the page was loaded from, keeping the backend's
+// port, unless an explicit API URL is provided.
+function resolveApiBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== "undefined") {
+    const { hostname, protocol } = window.location;
+    if (hostname !== "localhost" && hostname !== "127.0.0.1") {
+      return `${protocol}//${hostname}:8000`;
+    }
+  }
+  return "http://127.0.0.1:8000";
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 export class ApiError extends Error {}
 
@@ -55,4 +70,20 @@ export function predictPatient(patient: PatientInput): Promise<PredictionRespons
 
 export function simulatePatient(patient: PatientInput): Promise<PredictionResponse> {
   return postPrediction("/simulate", patient);
+}
+
+export async function fetchModelMetrics(): Promise<ModelMetrics> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/metrics`);
+  } catch {
+    throw new ApiError(
+      "Could not reach the prediction service. Confirm the backend is running at " +
+        API_BASE_URL
+    );
+  }
+  if (!response.ok) {
+    throw new ApiError(`Could not load model metrics (${response.status})`);
+  }
+  return response.json();
 }

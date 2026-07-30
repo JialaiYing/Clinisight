@@ -12,5 +12,6 @@ def health() -> dict:
     return {
         "status": "ok" if inference_service.loaded else "degraded",
         "model_loaded": inference_service.loaded,
+        "calibration_applied": inference_service.calibration_applied,
         "device": str(inference_service.device),
     }

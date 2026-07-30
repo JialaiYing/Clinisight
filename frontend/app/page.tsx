@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Hero } from "@/components/hero/Hero";
 import { PatientForm } from "@/components/forms/PatientForm";
@@ -12,6 +12,7 @@ import {
   type ScenarioSnapshot,
 } from "@/components/results/ScenarioCompare";
 import { PastPredictions } from "@/components/results/PastPredictions";
+import { ModelCard } from "@/components/results/ModelCard";
 import { DemoPersonas } from "@/components/forms/DemoPersonas";
 import { ApiError, predictPatient } from "@/lib/api";
 import {
@@ -24,7 +25,12 @@ import {
   type HistoryEntry,
   type TrashEntry,
 } from "@/lib/history";
-import { defaultPatientValues, PRIMARY_PERSONA, type DemoPersona } from "@/lib/personas";
+import {
+  blankPatientValues,
+  defaultPatientValues,
+  PRIMARY_PERSONA,
+  type DemoPersona,
+} from "@/lib/personas";
 import type { PatientFormValues } from "@/lib/validation";
 import type { PredictionResponse } from "@/lib/types";
 
@@ -73,17 +79,31 @@ export default function Home() {
   const [activePersonaId, setActivePersonaId] = useState<string | null>(PRIMARY_PERSONA.id);
 
   useEffect(() => {
+    // localStorage is a client-only external system; can't read it during SSR render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHistory(loadHistory());
     setTrash(loadTrash());
   }, []);
 
-  const handleLoadPersona = (persona: DemoPersona) => {
-    setFormValues(persona.values);
+  const handleLoadPersona = useCallback((persona: DemoPersona) => {
+    // Clone so React always sees a new values object even if the same case is re-clicked.
+    setFormValues({ ...persona.values, medications: [...persona.values.medications] });
     setFormKey((k) => k + 1);
     setActivePersonaId(persona.id);
     setSubmitError(null);
     document.getElementById("patient-form")?.scrollIntoView({ behavior: "smooth" });
-  };
+  }, []);
+
+  const handleUserEdit = useCallback(() => {
+    setActivePersonaId(null);
+  }, []);
+
+  const handleClearForm = useCallback(() => {
+    setFormValues({ ...blankPatientValues, medications: [] });
+    setFormKey((k) => k + 1);
+    setActivePersonaId(null);
+    setSubmitError(null);
+  }, []);
 
   const pinCurrentAsCompare = () => {
     if (!result || !baselinePatient) return;
@@ -128,7 +148,10 @@ export default function Home() {
     }
     pinCurrentAsCompare();
     setBaselinePatient(entry.patient);
-    setFormValues(entry.patient);
+    setFormValues({
+      ...entry.patient,
+      medications: [...(entry.patient.medications ?? [])],
+    });
     setFormKey((k) => k + 1);
     setResult(entry.result);
     setActiveEntryId(entry.id);
@@ -203,12 +226,13 @@ export default function Home() {
             onSelect={handleLoadPersona}
           />
           <PatientForm
-            key={formKey}
             defaultValues={formValues}
+            resetSignal={formKey}
             onSubmitPatient={handleSubmitPatient}
+            onClear={handleClearForm}
             isSubmitting={isSubmitting}
             submitError={submitError}
-            onUserEdit={() => setActivePersonaId(null)}
+            onUserEdit={handleUserEdit}
           />
         </section>
 
@@ -268,12 +292,20 @@ export default function Home() {
               Clinisight is an inpatient medication-safety prototype: given labs and meds, it
               estimates risk for six adverse drug events (AKI, hyperkalemia, QT prolongation,
               liver toxicity, bleeding, hypoglycemia), suggests next actions, and lets clinicians
-              simulate safer regimens before prescribing. Trained on synthetic patient data — not
-              clinically validated.
+              simulate safer regimens before prescribing. Trained on synthetic patient data,
+              not clinically validated. See{" "}
+              <a href="#model-card" className="underline-offset-2 hover:underline">
+                model card
+              </a>{" "}
+              for test metrics.
             </p>
             <p className="mt-3 text-sm font-medium text-foreground">
               {result?.disclaimer ?? "Not for clinical use. Prototype only."}
             </p>
+
+            <div className="mt-10 border-t border-border pt-10">
+              <ModelCard />
+            </div>
           </div>
         </section>
       </main>

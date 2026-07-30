@@ -17,7 +17,7 @@ export function DemoPersonas({
           Demo cases
         </h2>
         <p className="text-sm text-muted-foreground">
-          Load a patient, then Predict — use what-if to try a safer regimen.
+          Load a patient, then Predict. Use what-if to try a safer regimen.
         </p>
       </div>
       <ul className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -28,7 +28,11 @@ export function DemoPersonas({
               <button
                 type="button"
                 aria-pressed={active}
-                onClick={() => onSelect(persona)}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onSelect(persona);
+                }}
                 className={cn(
                   "h-full w-full border px-4 py-3 text-left transition-colors",
                   active

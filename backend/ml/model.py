@@ -9,7 +9,10 @@ from __future__ import annotations
 import torch
 from torch import nn
 
-INPUT_DIM = 32
+from ml.generate_data import FEATURE_COLS
+
+# Keep in sync with FEATURE_COLS (demographics/labs/comorbidities + curated drugs).
+INPUT_DIM = len(FEATURE_COLS)
 OUTPUT_DIM = 6
 HIDDEN_1 = 64
 HIDDEN_2 = 32
@@ -45,4 +48,4 @@ if __name__ == "__main__":
     x = torch.randn(8, INPUT_DIM)
     y = model(x)
     assert y.shape == (8, OUTPUT_DIM), f"Expected (8, {OUTPUT_DIM}), got {tuple(y.shape)}"
-    print(f"ADEPredictor OK — input {tuple(x.shape)} → logits {tuple(y.shape)}")
+    print(f"ADEPredictor OK, input {tuple(x.shape)} -> logits {tuple(y.shape)}")

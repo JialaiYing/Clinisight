@@ -3,20 +3,14 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from ml.drugs import DRUG_IDS
 
 
 class Sex(str, Enum):
     female = "female"
     male = "male"
-
-
-class MedicationClass(str, Enum):
-    none = "none"
-    antihypertensive = "antihypertensive"
-    antidiabetic = "antidiabetic"
-    antibiotic = "antibiotic"
-    analgesic = "analgesic"
 
 
 class PatientInput(BaseModel):
@@ -46,17 +40,47 @@ class PatientInput(BaseModel):
     liver_disease: bool = False
     heart_failure: bool = False
 
-    medication_class: MedicationClass = MedicationClass.none
+    # Curated high-risk inpatient drugs (multi-select). Concurrent count may exceed
+    # len(medications) to represent other unlisted home/hospital meds.
+    medications: list[str] = Field(default_factory=list, max_length=30)
     num_concurrent_meds: int = Field(0, ge=0, le=30)
-    on_nsaid: bool = False
-    on_ace_inhibitor: bool = False
-    on_anticoagulant: bool = False
-    on_insulin: bool = False
+
+    @field_validator("medications")
+    @classmethod
+    def _validate_meds(cls, value: list[str]) -> list[str]:
+        allowed = set(DRUG_IDS)
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for mid in value:
+            if mid not in allowed:
+                raise ValueError(f"Unknown medication id: {mid}")
+            if mid not in seen:
+                cleaned.append(mid)
+                seen.add(mid)
+        return cleaned
+
+
+class AttributionItem(BaseModel):
+    """Signed contribution from Captum Integrated Gradients (scaled-feature space)."""
+
+    feature: str
+    feature_key: str
+    contribution: float
+
+
+class InteractionAlert(BaseModel):
+    outcome: str
+    message: str
 
 
 class PredictionResponse(BaseModel):
     risks: dict[str, float]
     explanations: dict[str, list[str]]
+    recommendations: dict[str, list[str]] = Field(default_factory=dict)
+    attributions: dict[str, list[AttributionItem]] = Field(default_factory=dict)
+    interaction_alerts: list[InteractionAlert] = Field(default_factory=list)
     overall_risk_level: Literal["low", "moderate", "high"]
+    confidence: Literal["low", "moderate", "high"] = "moderate"
+    calibration_applied: bool = False
     disclaimer: str
     computed_egfr: float

@@ -24,17 +24,36 @@ function readHistory(): HistoryEntry[] {
   try {
     const raw = window.localStorage.getItem(HISTORY_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? (parsed as HistoryEntry[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    const valid = (parsed as HistoryEntry[]).filter(isCompatibleHistoryEntry);
+    // Drop legacy entries (pre-drug-list patient schema) so the UI does not crash.
+    if (valid.length !== parsed.length) {
+      writeHistory(valid);
+    }
+    return valid;
   } catch {
     return [];
   }
+}
+
+function isCompatibleHistoryEntry(entry: unknown): entry is HistoryEntry {
+  if (!entry || typeof entry !== "object") return false;
+  const e = entry as Partial<HistoryEntry>;
+  const patient = e.patient as Partial<PatientFormValues> | undefined;
+  if (!patient || typeof patient !== "object") return false;
+  if (!Array.isArray(patient.medications)) return false;
+  if (typeof patient.num_concurrent_meds !== "number") return false;
+  if (typeof patient.age !== "number" || !patient.sex) return false;
+  if (!e.result || typeof e.result !== "object") return false;
+  if (!e.result.risks || typeof e.result.risks !== "object") return false;
+  return typeof e.id === "string" && typeof e.createdAt === "string";
 }
 
 function writeHistory(entries: HistoryEntry[]): void {
   try {
     window.localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
   } catch {
-    // private mode / quota — keep in-memory behavior for the session
+    // Storage full or blocked (private browsing); just keep this in memory for the tab.
   }
 }
 
@@ -43,7 +62,11 @@ function readTrash(): TrashEntry[] {
   try {
     const raw = window.localStorage.getItem(TRASH_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? (parsed as TrashEntry[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    return (parsed as TrashEntry[]).filter(
+      (entry) =>
+        isCompatibleHistoryEntry(entry) && typeof entry.deletedAt === "string"
+    );
   } catch {
     return [];
   }
@@ -53,7 +76,7 @@ function writeTrash(entries: TrashEntry[]): void {
   try {
     window.localStorage.setItem(TRASH_KEY, JSON.stringify(entries));
   } catch {
-    // private mode / quota — keep in-memory behavior for the session
+    // Storage full or blocked (private browsing); just keep this in memory for the tab.
   }
 }
 

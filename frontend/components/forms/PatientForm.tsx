@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, type FieldPath } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { DRUG_CATALOG } from "@/lib/drugs";
 import {
   patientFormSchema,
   type PatientFormValues,
@@ -22,16 +23,43 @@ import {
 import { defaultPatientValues } from "@/lib/personas";
 import { AlertCircle, Loader2 } from "lucide-react";
 
-type FormField = FieldPath<PatientFormValues>;
+type NumericField = Exclude<
+  keyof PatientFormValues,
+  | "sex"
+  | "medications"
+  | "diabetes"
+  | "hypertension"
+  | "ckd"
+  | "liver_disease"
+  | "heart_failure"
+>;
+
+type BoolField =
+  | "diabetes"
+  | "hypertension"
+  | "ckd"
+  | "liver_disease"
+  | "heart_failure";
+
+function clonePatient(values: PatientFormValues): PatientFormValues {
+  return {
+    ...values,
+    medications: [...(values.medications ?? [])],
+  };
+}
 
 interface PatientFormProps {
   onSubmitPatient: (values: PatientFormValues) => void;
   isSubmitting: boolean;
   submitError: string | null;
-  /** When the parent remounts this form (via key), these values load into the fields. */
+  /** Values to load into the form (demo case / history). */
   defaultValues?: PatientFormValues;
+  /** Bump this to remount/reset when loading a demo case or history entry. */
+  resetSignal?: number;
   /** Fires once the user changes any field away from the loaded defaults. */
   onUserEdit?: () => void;
+  /** Wipes every field back to blank. */
+  onClear?: () => void;
 }
 
 export function PatientForm({
@@ -39,23 +67,108 @@ export function PatientForm({
   isSubmitting,
   submitError,
   defaultValues = defaultPatientValues,
+  resetSignal = 0,
   onUserEdit,
+  onClear,
 }: PatientFormProps) {
+  // Remount on demo/history load so registered inputs always pick up new values.
+  // Clone so RHF never shares mutable state with persona constants.
+  return (
+    <PatientFormInner
+      key={resetSignal}
+      defaultValues={clonePatient(defaultValues)}
+      onSubmitPatient={onSubmitPatient}
+      isSubmitting={isSubmitting}
+      submitError={submitError}
+      onUserEdit={onUserEdit}
+      onClear={onClear}
+    />
+  );
+}
+
+function PatientFormInner({
+  onSubmitPatient,
+  isSubmitting,
+  submitError,
+  defaultValues,
+  onUserEdit,
+  onClear,
+}: {
+  onSubmitPatient: (values: PatientFormValues) => void;
+  isSubmitting: boolean;
+  submitError: string | null;
+  defaultValues: PatientFormValues;
+  onUserEdit?: () => void;
+  onClear?: () => void;
+}) {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     formState: { errors, isDirty },
   } = useForm<PatientFormValues>({
     resolver: zodResolver(patientFormSchema),
     defaultValues,
+    shouldUnregister: false,
   });
 
   const notifiedDirty = useRef(false);
-  useEffect(() => {
-    notifiedDirty.current = false;
-  }, [defaultValues]);
+
+  // defaultValue avoids a first-paint undefined that crashes Radix Select on remount.
+  const sex =
+    useWatch({ control, name: "sex", defaultValue: defaultValues.sex }) ??
+    defaultValues.sex ??
+    "female";
+  const medications =
+    useWatch({
+      control,
+      name: "medications",
+      defaultValue: defaultValues.medications,
+    }) ??
+    defaultValues.medications ??
+    [];
+  const diabetes =
+    useWatch({
+      control,
+      name: "diabetes",
+      defaultValue: defaultValues.diabetes,
+    }) ?? defaultValues.diabetes;
+  const hypertension =
+    useWatch({
+      control,
+      name: "hypertension",
+      defaultValue: defaultValues.hypertension,
+    }) ?? defaultValues.hypertension;
+  const ckd =
+    useWatch({ control, name: "ckd", defaultValue: defaultValues.ckd }) ??
+    defaultValues.ckd;
+  const liverDisease =
+    useWatch({
+      control,
+      name: "liver_disease",
+      defaultValue: defaultValues.liver_disease,
+    }) ?? defaultValues.liver_disease;
+  const heartFailure =
+    useWatch({
+      control,
+      name: "heart_failure",
+      defaultValue: defaultValues.heart_failure,
+    }) ?? defaultValues.heart_failure;
+  const numConcurrentMeds =
+    useWatch({
+      control,
+      name: "num_concurrent_meds",
+      defaultValue: defaultValues.num_concurrent_meds,
+    }) ?? defaultValues.num_concurrent_meds;
+
+  const boolValues: Record<BoolField, boolean> = {
+    diabetes: !!diabetes,
+    hypertension: !!hypertension,
+    ckd: !!ckd,
+    liver_disease: !!liverDisease,
+    heart_failure: !!heartFailure,
+  };
 
   useEffect(() => {
     if (isDirty && onUserEdit && !notifiedDirty.current) {
@@ -64,21 +177,26 @@ export function PatientForm({
     }
   }, [isDirty, onUserEdit]);
 
-  const values = watch();
+  const toggleMedication = (drugId: string, checked: boolean) => {
+    const current = medications;
+    const next = checked
+      ? current.includes(drugId)
+        ? current
+        : [...current, drugId]
+      : current.filter((id) => id !== drugId);
+    setValue("medications", next, { shouldDirty: true, shouldValidate: true });
+    if (checked && numConcurrentMeds < next.length) {
+      setValue("num_concurrent_meds", next.length, { shouldDirty: true });
+    } else if (!checked && numConcurrentMeds === current.length) {
+      setValue("num_concurrent_meds", next.length, { shouldDirty: true });
+    }
+  };
 
-  const checkbox = (
-    name:
-      | "diabetes"
-      | "hypertension"
-      | "ckd"
-      | "liver_disease"
-      | "heart_failure"
-      | "on_nsaid"
-      | "on_ace_inhibitor"
-      | "on_anticoagulant"
-      | "on_insulin",
-    label: string
-  ) => (
+  const runPredict = () => {
+    void handleSubmit(onSubmitPatient)();
+  };
+
+  const checkbox = (name: BoolField, label: string) => (
     <label
       key={name}
       htmlFor={name}
@@ -86,7 +204,7 @@ export function PatientForm({
     >
       <Checkbox
         id={name}
-        checked={values[name]}
+        checked={boolValues[name]}
         onCheckedChange={(checked) =>
           setValue(name, checked === true, { shouldDirty: true })
         }
@@ -95,7 +213,7 @@ export function PatientForm({
     </label>
   );
 
-  const number = (name: FormField, label: string, step = 1, mono = false) => (
+  const number = (name: NumericField, label: string, step = 1, mono = false) => (
     <div key={name} className="space-y-1.5">
       <Label htmlFor={name}>{label}</Label>
       <Input
@@ -103,7 +221,14 @@ export function PatientForm({
         type="number"
         step={step}
         className={cn(mono && "font-mono")}
-        {...register(name, { valueAsNumber: true })}
+        {...register(name, {
+          valueAsNumber: true,
+          setValueAs: (v) => {
+            if (v === "" || v === null || v === undefined) return undefined;
+            const n = typeof v === "number" ? v : Number(v);
+            return Number.isFinite(n) ? n : undefined;
+          },
+        })}
       />
       {errors[name] && (
         <p className="text-xs text-destructive">Out of expected range</p>
@@ -113,7 +238,27 @@ export function PatientForm({
 
   return (
     <div id="patient-form">
-      <form onSubmit={handleSubmit(onSubmitPatient)} className="space-y-10">
+      {/*
+        Not a <form>: Next.js App Router + native submit (and button-default-submit
+        from Radix Checkbox/Select) was navigating to /?age=&… and wiping the page.
+      */}
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-base font-semibold tracking-tight text-foreground">
+          Patient details
+        </h2>
+        {onClear && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={isSubmitting}
+            onClick={onClear}
+          >
+            Clear
+          </Button>
+        )}
+      </div>
+      <div className="mt-6 space-y-10">
         <section>
           <h3 className="text-base font-semibold tracking-tight text-foreground">
             Demographics
@@ -123,12 +268,14 @@ export function PatientForm({
             <div className="space-y-1.5">
               <Label htmlFor="sex">Sex</Label>
               <Select
-                value={values.sex}
+                value={sex === "male" ? "male" : "female"}
                 onValueChange={(v) =>
-                  setValue("sex", v as PatientFormValues["sex"], { shouldDirty: true })
+                  setValue("sex", v as PatientFormValues["sex"], {
+                    shouldDirty: true,
+                  })
                 }
               >
-                <SelectTrigger id="sex" className="w-full">
+                <SelectTrigger id="sex" type="button" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -157,7 +304,7 @@ export function PatientForm({
           <h3 className="text-base font-semibold tracking-tight text-foreground">
             Medical History
           </h3>
-          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-5">
             {checkbox("diabetes", "Diabetes")}
             {checkbox("hypertension", "Hypertension")}
             {checkbox("ckd", "Chronic Kidney Disease")}
@@ -173,7 +320,7 @@ export function PatientForm({
           <p className="mt-2 text-xs" style={{ color: "var(--risk-info)" }}>
             eGFR is calculated automatically from creatinine, age, and sex.
           </p>
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="mt-4 grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-3">
             {number("creatinine", "Creatinine (mg/dL)", 0.1, true)}
             {number("potassium", "Potassium (mEq/L)", 0.1, true)}
             {number("sodium", "Sodium (mEq/L)", 1, true)}
@@ -190,38 +337,33 @@ export function PatientForm({
           <h3 className="text-base font-semibold tracking-tight text-foreground">
             Medications
           </h3>
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="medication_class">Medication Class</Label>
-              <Select
-                value={values.medication_class}
-                onValueChange={(v) =>
-                  setValue(
-                    "medication_class",
-                    v as PatientFormValues["medication_class"],
-                    { shouldDirty: true }
-                  )
-                }
-              >
-                <SelectTrigger id="medication_class" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="antihypertensive">Antihypertensive</SelectItem>
-                  <SelectItem value="antidiabetic">Antidiabetic</SelectItem>
-                  <SelectItem value="antibiotic">Antibiotic</SelectItem>
-                  <SelectItem value="analgesic">Analgesic</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {number("num_concurrent_meds", "Concurrent Medications")}
+          <p className="mt-2 text-xs text-muted-foreground">
+            Curated high-risk drugs only. The concurrent-med count below can include
+            others you&apos;re not tracking here.
+          </p>
+          <div className="mt-4 max-w-xs">
+            {number("num_concurrent_meds", "Total concurrent medications")}
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
-            {checkbox("on_nsaid", "NSAID")}
-            {checkbox("on_ace_inhibitor", "ACE Inhibitor")}
-            {checkbox("on_anticoagulant", "Anticoagulant")}
-            {checkbox("on_insulin", "Insulin")}
+          <div className="mt-4 grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+            {DRUG_CATALOG.map((drug) => {
+              const checked = medications.includes(drug.id);
+              return (
+                <label
+                  key={drug.id}
+                  htmlFor={`med-${drug.id}`}
+                  className="flex items-center gap-2.5 py-1 text-sm text-foreground"
+                >
+                  <Checkbox
+                    id={`med-${drug.id}`}
+                    checked={checked}
+                    onCheckedChange={(value) =>
+                      toggleMedication(drug.id, value === true)
+                    }
+                  />
+                  {drug.label}
+                </label>
+              );
+            })}
           </div>
         </section>
 
@@ -233,10 +375,11 @@ export function PatientForm({
         )}
 
         <Button
-          type="submit"
+          type="button"
           size="lg"
           className="h-12 w-full text-base"
           disabled={isSubmitting}
+          onClick={runPredict}
         >
           {isSubmitting ? (
             <>
@@ -247,7 +390,7 @@ export function PatientForm({
             "Predict"
           )}
         </Button>
-      </form>
+      </div>
     </div>
   );
 }

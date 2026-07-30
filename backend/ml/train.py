@@ -11,7 +11,8 @@ from torch.optim import AdamW
 from tqdm import tqdm
 
 from ml.dataset import make_loader
-from ml.model import ADEPredictor
+from ml.generate_data import FEATURE_COLS
+from ml.model import ADEPredictor, INPUT_DIM, OUTPUT_DIM
 from ml.preprocess import fit_scaler, load_split, save_scaler
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -120,7 +121,7 @@ def main() -> None:
         gpu_name = torch.cuda.get_device_name(0)
         print(f"Device: {device} ({gpu_name})")
     else:
-        print(f"Device: {device}  [WARNING: CUDA not available — training on CPU]")
+        print(f"Device: {device}  [WARNING: CUDA not available, training on CPU]")
     print(
         f"Training up to {MAX_EPOCHS} epochs | "
         f"AdamW lr={LR} weight_decay={WEIGHT_DECAY} | early stop patience={PATIENCE}"
@@ -176,8 +177,9 @@ def main() -> None:
             "model_state_dict": best_state,
             "best_epoch": best_epoch,
             "best_val_loss": best_val,
-            "input_dim": 32,
-            "output_dim": 6,
+            "input_dim": INPUT_DIM,
+            "output_dim": OUTPUT_DIM,
+            "n_features": len(FEATURE_COLS),
             "weight_decay": WEIGHT_DECAY,
             "patience": PATIENCE,
         },
@@ -193,8 +195,8 @@ def main() -> None:
     with open(ARTIFACTS / "train_metrics.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
 
-    print(f"Saved best model (epoch {best_epoch}, val_loss={best_val:.4f}) → {ckpt_path}")
-    print(f"Saved scaler → {ARTIFACTS / 'scaler.joblib'}")
+    print(f"Saved best model (epoch {best_epoch}, val_loss={best_val:.4f}) -> {ckpt_path}")
+    print(f"Saved scaler -> {ARTIFACTS / 'scaler.joblib'}")
 
 
 if __name__ == "__main__":

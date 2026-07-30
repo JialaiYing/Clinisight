@@ -18,7 +18,55 @@ import {
   topOutcome,
 } from "@/lib/risk";
 import type { PatientFormValues } from "@/lib/validation";
-import type { PredictionResponse } from "@/lib/types";
+import type { AttributionItem, PredictionResponse } from "@/lib/types";
+
+function maxAbsContribution(items: AttributionItem[]): number {
+  if (items.length === 0) return 1;
+  return Math.max(...items.map((item) => Math.abs(item.contribution)), 1e-6);
+}
+
+function ModelDrivers({ items }: { items: AttributionItem[] }) {
+  const scale = maxAbsContribution(items);
+  if (items.length === 0) {
+    return (
+      <p className="mt-2 pl-3 text-sm text-muted-foreground">
+        No strong model drivers for this prediction.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="mt-2 max-w-3xl space-y-2">
+      {items.map((item) => {
+        const widthPct = Math.min(100, (Math.abs(item.contribution) / scale) * 100);
+        const raises = item.contribution >= 0;
+        const barColor = raises ? "var(--risk-high)" : "var(--risk-safe)";
+        return (
+          <li key={`${item.feature_key}-${item.contribution}`}>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 pl-3">
+              <span className="text-sm text-foreground">
+                <span className="mr-1.5 font-mono text-xs" style={{ color: barColor }}>
+                  {raises ? "+" : "−"}
+                </span>
+                {item.feature}
+              </span>
+              <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                {raises ? "+" : ""}
+                {item.contribution.toFixed(3)}
+              </span>
+            </div>
+            <div className="ml-3 mt-1 h-1 max-w-md bg-border/60">
+              <div
+                className="h-1"
+                style={{ width: `${widthPct}%`, backgroundColor: barColor }}
+              />
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 export function RiskReport({
   result,
@@ -28,7 +76,9 @@ export function RiskReport({
   baselinePatient: PatientFormValues;
 }) {
   const [topKey, topProbability] = topOutcome(result.risks);
-  const primaryDriver = result.explanations[topKey]?.[0];
+  const topAttribution = result.attributions?.[topKey]?.[0];
+  const primaryDriver =
+    topAttribution?.feature ?? result.explanations[topKey]?.[0];
   const overallColor = overallRiskColor(result.overall_risk_level);
   const orderedKeys = outcomesByRiskDesc(result.risks);
   const recommendations = result.recommendations ?? {};
@@ -45,10 +95,10 @@ export function RiskReport({
       className="border border-border bg-background print:border-0"
       aria-label="Risk assessment report"
     >
-      <header className="scroll-mt-20 border-b border-border px-6 py-6 sm:px-8 print:hidden">
+      <header className="scroll-mt-20 border-b border-border px-6 py-7 sm:px-8 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <div>
-            <p className="text-xs tracking-wide text-muted-foreground uppercase">
+            <p className="text-sm font-semibold tracking-wide text-foreground uppercase">
               Risk assessment report
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -87,7 +137,7 @@ export function RiskReport({
             </dd>
           </div>
           <div>
-            <dt className="text-xs text-muted-foreground">Primary driver</dt>
+            <dt className="text-xs text-muted-foreground">Top model driver</dt>
             <dd className="mt-1 text-sm text-foreground">
               {primaryDriver ?? "None identified"}
             </dd>
@@ -108,24 +158,47 @@ export function RiskReport({
             </dd>
           </div>
         </dl>
+        {(result.confidence || result.calibration_applied) && (
+          <p className="mt-4 text-xs text-muted-foreground">
+            {result.calibration_applied ? "Temperature-calibrated probabilities" : "Uncalibrated probabilities"}
+            {result.confidence ? ` · Score confidence: ${result.confidence}` : ""}
+          </p>
+        )}
+        {(result.interaction_alerts?.length ?? 0) > 0 && (
+          <ul className="mt-4 space-y-1.5 border border-border bg-muted/30 px-3 py-3">
+            {(result.interaction_alerts ?? []).map((alert) => (
+              <li
+                key={`${alert.outcome}-${alert.message}`}
+                className="text-sm text-foreground"
+              >
+                <span className="mr-2 text-xs font-medium text-muted-foreground uppercase">
+                  {OUTCOME_LABELS[alert.outcome] ?? alert.outcome}
+                </span>
+                {alert.message}
+              </li>
+            ))}
+          </ul>
+        )}
       </header>
 
       <div className="print:hidden">
         <section
-          className="scroll-mt-20 px-6 py-6 sm:px-8"
+          className="scroll-mt-20 px-6 py-7 sm:px-8"
           aria-labelledby="ade-risks-heading"
         >
           <h3
             id="ade-risks-heading"
-            className="text-xs tracking-wide text-muted-foreground uppercase"
+            className="text-sm font-semibold tracking-wide text-foreground uppercase"
           >
             1. Adverse event risks
           </h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Sorted by predicted risk, highest first.
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Sorted by predicted risk. &quot;Model drivers&quot; come straight from the
+            network (Integrated Gradients); &quot;clinical factors&quot; are the
+            guideline checklist items behind it.
           </p>
 
-          <div className="mt-4">
+          <div className="mt-5">
             <div className="hidden grid-cols-[minmax(0,1fr)_4.5rem_5rem] gap-4 border-b border-border pb-2 text-xs text-muted-foreground md:grid">
               <span>Event</span>
               <span className="text-right">Risk</span>
@@ -135,6 +208,7 @@ export function RiskReport({
               {orderedKeys.map((key) => {
                 const probability = result.risks[key] ?? 0;
                 const factors = result.explanations[key] ?? [];
+                const drivers = result.attributions?.[key] ?? [];
                 const actionCountForKey = recommendations[key]?.length ?? 0;
                 const pct = probability * 100;
                 const tier = cardRiskTier(pct);
@@ -171,6 +245,15 @@ export function RiskReport({
                         {cardRiskLabel(tier)}
                       </span>
                     </div>
+
+                    <p className="mt-3 pl-3 text-xs tracking-wide text-muted-foreground uppercase">
+                      Model drivers
+                    </p>
+                    <ModelDrivers items={drivers} />
+
+                    <p className="mt-3 pl-3 text-xs tracking-wide text-muted-foreground uppercase">
+                      Clinical factors
+                    </p>
                     {factors.length > 0 ? (
                       <ul className="mt-2 max-w-3xl space-y-1">
                         {factors.map((factor, factorIndex) => (
@@ -197,18 +280,19 @@ export function RiskReport({
 
         <section
           id="suggested-actions"
-          className="scroll-mt-20 border-t border-border px-6 py-6 sm:px-8"
+          className="scroll-mt-20 border-t border-border px-6 py-7 sm:px-8"
           aria-labelledby="suggested-actions-heading"
         >
           <h3
             id="suggested-actions-heading"
-            className="text-xs tracking-wide text-muted-foreground uppercase"
+            className="text-sm font-semibold tracking-wide text-foreground uppercase"
           >
             2. Suggested next actions
           </h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Contextual CDS guidance for events at ≥30% predicted risk — demo only, not a
-            treatment protocol. Use section 3 to test whether a med change clears an action.
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Guideline-tagged CDS guidance for events at ≥30% predicted risk. Demo
+            guidance only, not a treatment protocol; section 3 below lets you test
+            whether a med change clears an action.
           </p>
 
           {recommendationsStale ? (
@@ -261,7 +345,7 @@ export function RiskReport({
 
         <section
           id="what-if"
-          className="scroll-mt-20 border-t border-border px-6 py-6 sm:px-8"
+          className="scroll-mt-20 border-t border-border px-6 py-7 sm:px-8"
           aria-labelledby="what-if-heading"
         >
           <WhatIfSimulator

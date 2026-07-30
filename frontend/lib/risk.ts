@@ -57,7 +57,7 @@ export function formatPercent(probability: number): string {
   return `${Math.round(probability * 100)}%`;
 }
 
-/** Matches backend ELEVATED_RISK_THRESHOLD — actions only for ≥ this probability. */
+/** Matches backend ELEVATED_RISK_THRESHOLD; actions only show at or above this probability. */
 export const ACTION_RISK_THRESHOLD = 0.3;
 
 /** Returns the [outcome key, probability] pair with the highest predicted risk. */

@@ -1,0 +1,17 @@
+# Runtime
+fastapi==0.140.0
+uvicorn[standard]==0.51.0
+pydantic==2.13.4
+pydantic-settings==2.14.2
+numpy==2.4.4
+pandas==3.0.5
+scikit-learn==1.9.0
+joblib==1.5.3
+tqdm==4.69.1
+# Install a matching torch build for your platform from https://pytorch.org
+torch==2.13.0
+captum==0.9.0
+
+# Dev / tests
+pytest==9.1.1
+httpx==0.28.1

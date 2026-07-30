@@ -7,28 +7,17 @@ import {
   overallRiskLabel,
   topOutcome,
 } from "@/lib/risk";
+import { drugLabel } from "@/lib/drugs";
 import type { PatientFormValues } from "@/lib/validation";
 import type { PredictionResponse } from "@/lib/types";
 
-export const MED_CLASS_LABELS: Record<string, string> = {
-  none: "No primary class",
-  antihypertensive: "Antihypertensive",
-  antidiabetic: "Antidiabetic",
-  antibiotic: "Antibiotic",
-  analgesic: "Analgesic",
-};
-
 export function patientSnapshot(patient: PatientFormValues): string {
-  const parts = [
-    `${patient.age}${patient.sex === "female" ? "F" : "M"}`,
-    MED_CLASS_LABELS[patient.medication_class] ?? patient.medication_class,
-  ];
-  const flags: string[] = [];
-  if (patient.on_nsaid) flags.push("NSAID");
-  if (patient.on_ace_inhibitor) flags.push("ACE-I");
-  if (patient.on_anticoagulant) flags.push("Anticoagulant");
-  if (patient.on_insulin) flags.push("Insulin");
-  if (flags.length) parts.push(flags.join(", "));
+  const parts = [`${patient.age}${patient.sex === "female" ? "F" : "M"}`];
+  const meds = (patient.medications ?? []).slice(0, 3).map(drugLabel);
+  if (meds.length) parts.push(meds.join(", "));
+  if ((patient.medications?.length ?? 0) > 3) {
+    parts.push(`+${patient.medications.length - 3} more`);
+  }
   parts.push(`${patient.num_concurrent_meds} concurrent meds`);
   return parts.join(" · ");
 }
@@ -44,13 +33,11 @@ function comorbidityList(patient: PatientFormValues): string {
 }
 
 function medicationList(patient: PatientFormValues): string {
-  const items = [MED_CLASS_LABELS[patient.medication_class] ?? patient.medication_class];
-  if (patient.on_nsaid) items.push("NSAID");
-  if (patient.on_ace_inhibitor) items.push("ACE inhibitor");
-  if (patient.on_anticoagulant) items.push("Anticoagulant");
-  if (patient.on_insulin) items.push("Insulin");
-  items.push(`${patient.num_concurrent_meds} concurrent medications`);
-  return items.join("; ");
+  const named = (patient.medications ?? []).map(drugLabel);
+  if (!named.length) {
+    return `${patient.num_concurrent_meds} concurrent medications (none curated selected)`;
+  }
+  return `${named.join(", ")}; ${patient.num_concurrent_meds} concurrent medications`;
 }
 
 function formatGeneratedAt(date: Date): string {
@@ -72,7 +59,7 @@ export function buildHandoffText(
   const actionKeys = orderedKeys.filter((key) => (recommendations[key]?.length ?? 0) > 0);
 
   const lines: string[] = [
-    "CLINISIGHT — CLINICIAN HANDOFF NOTE",
+    "CLINISIGHT · CLINICIAN HANDOFF NOTE",
     "Care-team use only. Not a patient education document.",
     `Generated: ${formatGeneratedAt(generatedAt)}`,
     "",
@@ -97,6 +84,16 @@ export function buildHandoffText(
     lines.push(`- ${OUTCOME_LABELS[key] ?? key}: ${formatPercent(probability)} (${tier})`);
     for (const factor of result.explanations[key] ?? []) {
       lines.push(`  Factor: ${factor}`);
+    }
+  }
+
+  lines.push("", "DRUG INTERACTION ALERTS");
+  const alerts = result.interaction_alerts ?? [];
+  if (alerts.length === 0) {
+    lines.push("- None flagged for the current curated regimen.");
+  } else {
+    for (const alert of alerts) {
+      lines.push(`- ${OUTCOME_LABELS[alert.outcome] ?? alert.outcome}: ${alert.message}`);
     }
   }
 
@@ -148,6 +145,14 @@ export function buildHandoffSections(
           ...(recommendations[key] ?? []).map((a) => `→ ${a}`),
         ]);
 
+  const alertLines =
+    (result.interaction_alerts?.length ?? 0) === 0
+      ? ["None flagged for the current curated regimen."]
+      : (result.interaction_alerts ?? []).map(
+          (alert) =>
+            `${OUTCOME_LABELS[alert.outcome] ?? alert.outcome}: ${alert.message}`
+        );
+
   return {
     subtitle: `Care-team handoff · Generated ${formatGeneratedAt(generatedAt)}`,
     sections: [
@@ -170,6 +175,7 @@ export function buildHandoffSections(
         ],
       },
       { title: "Adverse event risks", lines: riskLines },
+      { title: "Drug interaction alerts", lines: alertLines },
       { title: "Suggested next actions", lines: actionLines },
       { title: "Disclaimer", lines: [result.disclaimer] },
     ],

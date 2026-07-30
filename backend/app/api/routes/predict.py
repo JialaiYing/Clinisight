@@ -3,8 +3,15 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from app.schemas.patient import PatientInput, PredictionResponse
-from app.services.explain import DISCLAIMER, explain_patient, overall_risk_level
-from app.services.inference import inference_service
+from app.services.explain import (
+    DISCLAIMER,
+    explain_patient,
+    overall_risk_level,
+    recommend_patient,
+)
+from app.services.inference import inference_service, prediction_confidence
+from ml.drugs import active_interactions
+
 
 router = APIRouter(tags=["predict"])
 
@@ -14,13 +21,19 @@ def _run_prediction(patient: PatientInput) -> PredictionResponse:
         raise HTTPException(status_code=503, detail="Model not loaded")
     try:
         risks, egfr = inference_service.predict(patient)
-    except Exception as exc:  # noqa: BLE001 — bubble up as 500 for the client
+        attributions = inference_service.attribute(patient)
+    except Exception as exc:  # noqa: BLE001 (bubble up as 500 for the client)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return PredictionResponse(
         risks=risks,
         explanations=explain_patient(patient, egfr),
+        recommendations=recommend_patient(patient, egfr, risks),
+        attributions=attributions,
+        interaction_alerts=active_interactions(patient.medications),
         overall_risk_level=overall_risk_level(risks),  # type: ignore[arg-type]
+        confidence=prediction_confidence(risks),  # type: ignore[arg-type]
+        calibration_applied=inference_service.calibration_applied,
         disclaimer=DISCLAIMER,
         computed_egfr=round(egfr, 1),
     )
