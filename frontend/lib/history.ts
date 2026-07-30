@@ -31,7 +31,11 @@ function readHistory(): HistoryEntry[] {
 }
 
 function writeHistory(entries: HistoryEntry[]): void {
-  window.localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
+  try {
+    window.localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
+  } catch {
+    // private mode / quota — keep in-memory behavior for the session
+  }
 }
 
 function readTrash(): TrashEntry[] {
@@ -46,7 +50,11 @@ function readTrash(): TrashEntry[] {
 }
 
 function writeTrash(entries: TrashEntry[]): void {
-  window.localStorage.setItem(TRASH_KEY, JSON.stringify(entries));
+  try {
+    window.localStorage.setItem(TRASH_KEY, JSON.stringify(entries));
+  } catch {
+    // private mode / quota — keep in-memory behavior for the session
+  }
 }
 
 /** Drops trash entries past the retention window and persists the cleanup. */

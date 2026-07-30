@@ -44,38 +44,3 @@ export const patientFormSchema = z.object({
 });
 
 export type PatientFormValues = z.infer<typeof patientFormSchema>;
-
-// Realistic, moderate-risk defaults so the form is demo-ready without any typing.
-export const defaultPatientValues: PatientFormValues = {
-  age: 68,
-  sex: "female",
-  bmi: 27.5,
-
-  heart_rate: 78,
-  sbp: 132,
-  dbp: 82,
-  temperature: 98.4,
-
-  creatinine: 1.3,
-  potassium: 4.6,
-  sodium: 138,
-  ast: 28,
-  alt: 32,
-  hemoglobin: 12.8,
-  wbc: 7.2,
-  platelets: 210,
-  glucose: 142,
-
-  diabetes: true,
-  hypertension: true,
-  ckd: false,
-  liver_disease: false,
-  heart_failure: false,
-
-  medication_class: "antihypertensive",
-  num_concurrent_meds: 5,
-  on_nsaid: false,
-  on_ace_inhibitor: true,
-  on_anticoagulant: false,
-  on_insulin: false,
-};

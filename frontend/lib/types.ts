@@ -46,6 +46,8 @@ export type OverallRiskLevel = "low" | "moderate" | "high";
 export interface PredictionResponse {
   risks: Record<string, number>;
   explanations: Record<string, string[]>;
+  /** Present for elevated ADEs; may be missing on older cached history entries. */
+  recommendations?: Record<string, string[]>;
   overall_risk_level: OverallRiskLevel;
   disclaimer: string;
   computed_egfr: number;
