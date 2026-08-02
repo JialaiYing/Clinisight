@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import health, metrics, predict
-from app.core.config import _LAN_ORIGIN_RE, settings
+from app.core.config import _CORS_ORIGIN_RE, settings
 from app.services.inference import inference_service
 
 
@@ -30,10 +30,9 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    # Regex covers the frontend loaded from a private-LAN IP (e.g. a phone on
-    # the same Wi-Fi hitting http://10.0.0.4:3000) so the static allow-list
-    # above doesn't need to be updated whenever the machine's IP changes.
-    allow_origin_regex=_LAN_ORIGIN_RE.pattern,
+    # Regex covers LAN demos and *.vercel.app so deployed frontends work
+    # without editing the static allow-list for every preview URL.
+    allow_origin_regex=_CORS_ORIGIN_RE.pattern,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

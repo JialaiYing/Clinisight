@@ -1,0 +1,89 @@
+{
+  "labels": {
+    "aki": {
+      "auroc": 0.7604162301251373,
+      "auprc": 0.6001344602701764,
+      "accuracy@0.5": 0.76,
+      "prevalence": 0.30533334612846375,
+      "brier": 0.17015581870163665,
+      "ece": 0.02951219239601576
+    },
+    "hyperkalemia": {
+      "auroc": 0.7776069766992502,
+      "auprc": 0.5992791803886969,
+      "accuracy@0.5": 0.7586666666666667,
+      "prevalence": 0.2926666736602783,
+      "brier": 0.1646007358434953,
+      "ece": 0.021447377304003264
+    },
+    "qt_prolongation": {
+      "auroc": 0.7574255391989044,
+      "auprc": 0.4051260438925209,
+      "accuracy@0.5": 0.8473333333333334,
+      "prevalence": 0.15333333611488342,
+      "brier": 0.1114208489958017,
+      "ece": 0.024779615972030412
+    },
+    "liver_toxicity": {
+      "auroc": 0.6383167767549107,
+      "auprc": 0.29248054907239684,
+      "accuracy@0.5": 0.8873333333333333,
+      "prevalence": 0.11599999666213989,
+      "brier": 0.0959936768679208,
+      "ece": 0.042940397949006545
+    },
+    "bleeding_risk": {
+      "auroc": 0.6717037470725996,
+      "auprc": 0.36972155249178784,
+      "accuracy@0.5": 0.8186666666666667,
+      "prevalence": 0.18666666746139526,
+      "brier": 0.13990132624564577,
+      "ece": 0.021143939113584365
+    },
+    "hypoglycemia": {
+      "auroc": 0.7046091754469987,
+      "auprc": 0.4559404607997147,
+      "accuracy@0.5": 0.7906666666666666,
+      "prevalence": 0.23199999332427979,
+      "brier": 0.15747857299946594,
+      "ece": 0.026523428127277066
+    }
+  },
+  "macro_auroc": 0.7183464075496335,
+  "macro_auprc": 0.4537803744858822,
+  "macro_brier": 0.13992516327566104,
+  "macro_ece": 0.027724491810319565,
+  "element_accuracy@0.5": 0.8104444444444444,
+  "best_epoch": 9,
+  "best_val_loss": 0.4546264924208323,
+  "calibration": {
+    "method": "temperature_scaling",
+    "fitted_on": "validation",
+    "temperatures": {
+      "aki": 0.9707977991691208,
+      "hyperkalemia": 1.0101997932087747,
+      "qt_prolongation": 0.9781748207091042,
+      "liver_toxicity": 1.0648877742003946,
+      "bleeding_risk": 0.9997984933047488,
+      "hypoglycemia": 1.0978150716950594
+    },
+    "macro_brier_before": 0.13975200926264128,
+    "macro_brier_after": 0.13992516327566104,
+    "macro_ece_before": 0.02614776877603597,
+    "macro_ece_after": 0.027724491810319565
+  },
+  "training": {
+    "architecture": "MLP 41->64->32->6 (BatchNorm, ReLU, Dropout)",
+    "loss": "BCEWithLogitsLoss",
+    "optimizer": "AdamW",
+    "data": "synthetic_literature_derived",
+    "n_features": 41,
+    "n_outcomes": 6,
+    "disclaimer": "Synthetic test metrics only - not clinically validated."
+  },
+  "splits": {
+    "train": 7000,
+    "val": 1500,
+    "test": 1500
+  }
+}

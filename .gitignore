@@ -11,6 +11,11 @@ backend/artifacts/*
 !backend/data/raw/.gitkeep
 !backend/data/processed/.gitkeep
 !backend/artifacts/.gitkeep
+# Runtime inference artifacts (needed for Railway / any git-based deploy)
+!backend/artifacts/model.pt
+!backend/artifacts/scaler.joblib
+!backend/artifacts/calibrator.joblib
+!backend/artifacts/metrics.json
 
 # Node / Next.js
 frontend/node_modules/
