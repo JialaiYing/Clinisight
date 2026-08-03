@@ -47,7 +47,7 @@ function formatGeneratedAt(date: Date): string {
   });
 }
 
-/** Plain-text clinician handoff note for clipboard / paste into EHR or email. */
+/** Clipboard-friendly clinician handoff note. */
 export function buildHandoffText(
   patient: PatientFormValues,
   result: PredictionResponse,
@@ -118,7 +118,7 @@ export interface HandoffSection {
   lines: string[];
 }
 
-/** Structured sections for the printable handoff document. */
+/** Sections for the printable handoff view. */
 export function buildHandoffSections(
   patient: PatientFormValues,
   result: PredictionResponse,

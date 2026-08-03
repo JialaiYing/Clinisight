@@ -27,8 +27,6 @@ import {
 } from "@/lib/history";
 import {
   blankPatientValues,
-  defaultPatientValues,
-  PRIMARY_PERSONA,
   type DemoPersona,
 } from "@/lib/personas";
 import type { PatientFormValues } from "@/lib/validation";
@@ -65,7 +63,10 @@ function snapshotFromLive(
 export default function Home() {
   const [result, setResult] = useState<PredictionResponse | null>(null);
   const [baselinePatient, setBaselinePatient] = useState<PatientFormValues | null>(null);
-  const [formValues, setFormValues] = useState<PatientFormValues>(defaultPatientValues);
+  const [formValues, setFormValues] = useState<PatientFormValues>({
+    ...blankPatientValues,
+    medications: [],
+  });
   const [formKey, setFormKey] = useState(0);
   const [reportKey, setReportKey] = useState(0);
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
@@ -76,17 +77,17 @@ export default function Home() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [trash, setTrash] = useState<TrashEntry[]>([]);
   const [pastOpen, setPastOpen] = useState(false);
-  const [activePersonaId, setActivePersonaId] = useState<string | null>(PRIMARY_PERSONA.id);
+  const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
 
   useEffect(() => {
-    // localStorage is a client-only external system; can't read it during SSR render.
+    // Can't touch localStorage during SSR.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setHistory(loadHistory());
     setTrash(loadTrash());
   }, []);
 
   const handleLoadPersona = useCallback((persona: DemoPersona) => {
-    // Clone so React always sees a new values object even if the same case is re-clicked.
+    // Fresh object even if the same persona is clicked twice.
     setFormValues({ ...persona.values, medications: [...persona.values.medications] });
     setFormKey((k) => k + 1);
     setActivePersonaId(persona.id);

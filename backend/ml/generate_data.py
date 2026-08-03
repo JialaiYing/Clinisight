@@ -1,15 +1,8 @@
-"""
-Synthetic ADE dataset for Clinisight.
+"""Synthetic ADE dataset for Clinisight (~10k patients).
 
-~10k patients with medically plausible features. eGFR is derived from
-creatinine/age/sex (CKD-EPI 2021) so labs stay physiologically coherent.
-Labels are noisy Bernoulli draws from clinical risk logits grounded in
-published risk factors (see docs/clinical-basis.md). These are directional
-associations, not hard rules, and not a substitute for real clinical outcomes
-data.
-
-Medications are a curated multi-hot drug list (see ml/drugs.py), including
-pairwise interaction bonuses (e.g. ACE-I + spironolactone → hyperkalemia).
+eGFR comes from CKD-EPI 2021 so labs stay coherent. Labels are noisy draws from
+literature-informed risk logits (docs/clinical-basis.md), not real outcomes.
+Meds are a curated multi-hot list with a few pairwise interaction bonuses.
 """
 
 from __future__ import annotations

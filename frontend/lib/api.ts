@@ -1,21 +1,25 @@
 import type { ModelMetrics, PatientInput, PredictionResponse } from "@/lib/types";
 
-// Loading the app from another device on the LAN (e.g. http://10.0.0.4:3000)
-// means "127.0.0.1" in the browser refers to that device, not this machine.
-// Fall back to whatever host the page was loaded from, keeping the backend's
-// port, unless an explicit API URL is provided.
+function isLanHostname(hostname: string): boolean {
+  if (/^10\.\d+\.\d+\.\d+$/.test(hostname)) return true;
+  if (/^192\.168\.\d+\.\d+$/.test(hostname)) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(hostname)) return true;
+  return false;
+}
+
+// Prefer NEXT_PUBLIC_API_URL. On a phone/laptop hitting the dev machine over
+// LAN, reuse that host on port 8000. Never invent host:8000 for public deploys
+// like Vercel; those need the env var.
 function resolveApiBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
   if (typeof window !== "undefined") {
     const { hostname, protocol } = window.location;
-    if (hostname !== "localhost" && hostname !== "127.0.0.1") {
+    if (isLanHostname(hostname)) {
       return `${protocol}//${hostname}:8000`;
     }
   }
   return "http://127.0.0.1:8000";
 }
-
-const API_BASE_URL = resolveApiBaseUrl();
 
 export class ApiError extends Error {}
 
@@ -42,9 +46,10 @@ async function postPrediction(
   path: "/predict" | "/simulate",
   patient: PatientInput
 ): Promise<PredictionResponse> {
+  const base = resolveApiBaseUrl();
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(`${base}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patient),
@@ -52,7 +57,7 @@ async function postPrediction(
   } catch {
     throw new ApiError(
       "Could not reach the prediction service. Confirm the backend is running at " +
-        API_BASE_URL
+        base
     );
   }
 
@@ -73,13 +78,14 @@ export function simulatePatient(patient: PatientInput): Promise<PredictionRespon
 }
 
 export async function fetchModelMetrics(): Promise<ModelMetrics> {
+  const base = resolveApiBaseUrl();
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}/metrics`);
+    response = await fetch(`${base}/metrics`);
   } catch {
     throw new ApiError(
       "Could not reach the prediction service. Confirm the backend is running at " +
-        API_BASE_URL
+        base
     );
   }
   if (!response.ok) {

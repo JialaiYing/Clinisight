@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .venv/
 *.egg-info/
+.pytest_cache/
 
 # Data & model artifacts
 backend/data/raw/*
@@ -11,7 +12,7 @@ backend/artifacts/*
 !backend/data/raw/.gitkeep
 !backend/data/processed/.gitkeep
 !backend/artifacts/.gitkeep
-# Runtime inference artifacts (needed for Railway / any git-based deploy)
+# Inference artifacts needed for git-based deploys (Render, etc.)
 !backend/artifacts/model.pt
 !backend/artifacts/scaler.joblib
 !backend/artifacts/calibrator.joblib
@@ -21,6 +22,7 @@ backend/artifacts/*
 frontend/node_modules/
 frontend/.next/
 frontend/next-env.d.ts
+frontend/.pytest_cache/
 
 # Env
 .env

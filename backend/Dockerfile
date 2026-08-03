@@ -10,11 +10,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# CPU torch first (smaller than the default CUDA wheel), then the rest.
+# CPU torch first (smaller than the default CUDA wheel). Skip torch/pytest/httpx
+# from requirements.txt so the image stays lean.
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
-    && grep -vE '^torch(==|>=|~=|$)' requirements.txt > /tmp/requirements.docker.txt \
+    && grep -vE '^(torch|pytest|httpx)(==|>=|~=|$)' requirements.txt > /tmp/requirements.docker.txt \
     && pip install --no-cache-dir -r /tmp/requirements.docker.txt
 
 COPY app ./app

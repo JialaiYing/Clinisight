@@ -3,19 +3,16 @@ import type { PatientFormValues } from "@/lib/validation";
 export interface DemoPersona {
   id: string;
   name: string;
-  /** Compact clinical identifier shown on the button. */
+  /** Short clinical label on the button. */
   tagline: string;
-  /** Where this case shows up in a real workflow. */
+  /** Care setting for context. */
   setting: string;
-  /** One-line story for the demo. */
+  /** One-line case story. */
   blurb: string;
   values: PatientFormValues;
 }
 
-/**
- * Theatrical demo cases for inpatient medication-safety walkthroughs.
- * Primary narrative: catch nephrotoxic / metabolic ADE risk before prescribing.
- */
+/** Click-to-load inpatient demo cases. */
 export const DEMO_PERSONAS: DemoPersona[] = [
   {
     id: "margaret-chen",
@@ -124,19 +121,8 @@ export const DEMO_PERSONAS: DemoPersona[] = [
   },
 ];
 
-export const PRIMARY_PERSONA = DEMO_PERSONAS[0];
-
-/** Form default = primary demo persona so the app opens on a theatrical case. */
-export const defaultPatientValues: PatientFormValues = {
-  ...PRIMARY_PERSONA.values,
-  medications: [...PRIMARY_PERSONA.values.medications],
-};
-
-/**
- * Blank slate for the Clear button. NaN is intentional: number inputs
- * sanitize an unparsable value to an empty string, so every field renders
- * empty instead of showing a placeholder "0".
- */
+// NaN keeps number inputs visually empty (they coerce NaN to "") instead of
+// showing 0. Personas only fill the form when the user clicks one.
 export const blankPatientValues: PatientFormValues = {
   age: Number.NaN,
   sex: "female",

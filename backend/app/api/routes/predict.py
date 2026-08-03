@@ -22,7 +22,7 @@ def _run_prediction(patient: PatientInput) -> PredictionResponse:
     try:
         risks, egfr = inference_service.predict(patient)
         attributions = inference_service.attribute(patient)
-    except Exception as exc:  # noqa: BLE001 (bubble up as 500 for the client)
+    except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return PredictionResponse(
@@ -46,5 +46,5 @@ def predict(patient: PatientInput) -> PredictionResponse:
 
 @router.post("/simulate", response_model=PredictionResponse)
 def simulate(patient: PatientInput) -> PredictionResponse:
-    # Same payload/response as /predict; separate path for the simulator UI.
+    # Same handler as /predict; own route so the what-if UI can stay distinct.
     return _run_prediction(patient)

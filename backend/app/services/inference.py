@@ -22,7 +22,7 @@ from ml.preprocess import load_scaler, transform
 
 
 def prediction_confidence(risks: dict[str, float]) -> str:
-    """Heuristic decisiveness: farther from 0.5 → higher confidence in the scores."""
+    """Rough label: scores farther from 0.5 count as more decisive."""
     if not risks:
         return "low"
     mean_dist = sum(abs(p - 0.5) for p in risks.values()) / len(risks)

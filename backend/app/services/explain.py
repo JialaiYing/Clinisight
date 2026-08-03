@@ -1,9 +1,7 @@
-"""
-Rule-based ADE factor lists and CDS-style next actions for the UI.
+"""Guideline-style factor lists and next actions for the report UI.
 
-Mirrors the literature-informed synthetic label generators
-(see docs/clinical-basis.md). This is demo guidance, not SHAP/Captum output and
-not a treatment protocol. Medication context comes from the curated drug list.
+Separate from Captum attributions. See docs/clinical-basis.md for sources.
+Demo guidance only, not a treatment protocol.
 """
 
 from __future__ import annotations
@@ -11,7 +9,7 @@ from __future__ import annotations
 from app.schemas.patient import PatientInput, Sex
 from ml.drugs import active_interactions, derived_flags, drug_label
 
-# Aligns with frontend cardRiskTier moderate cutoff (30%).
+# Aligns with frontend card bands (30% / 60%).
 ELEVATED_RISK_THRESHOLD = 0.30
 
 
@@ -286,10 +284,11 @@ def recommend_patient(
 
 
 def overall_risk_level(risks: dict[str, float]) -> str:
+    # Same cutoffs as frontend cardRiskTier (30% / 60%).
     peak = max(risks.values()) if risks else 0.0
-    if peak < 0.33:
+    if peak < 0.30:
         return "low"
-    if peak < 0.66:
+    if peak < 0.60:
         return "moderate"
     return "high"
 

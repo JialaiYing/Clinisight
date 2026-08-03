@@ -9,7 +9,7 @@ export const OUTCOME_LABELS: Record<string, string> = {
   hypoglycemia: "Hypoglycemia",
 };
 
-// Order the six ADE cards deterministically regardless of API key ordering.
+// Keep ADE card order stable even if the API key order changes.
 export const OUTCOME_ORDER = [
   "aki",
   "hyperkalemia",
@@ -21,7 +21,7 @@ export const OUTCOME_ORDER = [
 
 export type CardRiskTier = "low" | "moderate" | "high";
 
-/** Per-card thresholds: only moderate/high get color, low stays grayscale. */
+/** Card bands: under 30% low, under 60% moderate, else high. */
 export function cardRiskTier(pct: number): CardRiskTier {
   if (pct < 30) return "low";
   if (pct < 60) return "moderate";
@@ -40,7 +40,7 @@ export function cardRiskColor(tier: CardRiskTier): string {
   return "var(--muted-foreground)";
 }
 
-/** Overall summary badge uses the backend's classification and a fuller safe/amber/red palette. */
+/** Color for the overall summary badge from the API's low/moderate/high. */
 export function overallRiskColor(level: OverallRiskLevel): string {
   if (level === "moderate") return "var(--risk-moderate)";
   if (level === "high") return "var(--risk-high)";
@@ -57,16 +57,12 @@ export function formatPercent(probability: number): string {
   return `${Math.round(probability * 100)}%`;
 }
 
-/** Matches backend ELEVATED_RISK_THRESHOLD; actions only show at or above this probability. */
-export const ACTION_RISK_THRESHOLD = 0.3;
-
-/** Returns the [outcome key, probability] pair with the highest predicted risk. */
 export function topOutcome(risks: Record<string, number>): [string, number] {
   const entries = Object.entries(risks);
   return entries.reduce((max, entry) => (entry[1] > max[1] ? entry : max), entries[0] ?? ["", 0]);
 }
 
-/** Outcome keys sorted by descending risk (ties keep OUTCOME_ORDER). */
+/** Highest risk first; ties follow OUTCOME_ORDER. */
 export function outcomesByRiskDesc(risks: Record<string, number>): string[] {
   return [...OUTCOME_ORDER].sort((a, b) => {
     const diff = (risks[b] ?? 0) - (risks[a] ?? 0);
@@ -75,7 +71,7 @@ export function outcomesByRiskDesc(risks: Record<string, number>): string[] {
   });
 }
 
-/** Plain-language risk delta for before/after tables (same unit as displayed %). */
+/** Delta text for before/after risk tables. */
 export function formatRiskChange(delta: number): string {
   const pct = Math.round(delta * 100);
   if (pct === 0) return "No change";
@@ -88,7 +84,6 @@ export function riskChangeColor(delta: number): string {
   return "var(--muted-foreground)";
 }
 
-/** Count recommendation bullets across ADE keys. */
 export function countRecommendations(
   recommendations: Record<string, string[]> | undefined
 ): number {
@@ -96,10 +91,7 @@ export function countRecommendations(
   return Object.values(recommendations).reduce((sum, list) => sum + list.length, 0);
 }
 
-/**
- * ADE keys that had suggested actions at baseline but not after simulation
- * (risk dropped below the action threshold or context no longer matched).
- */
+/** Outcomes that had actions at baseline but none after the what-if run. */
 export function clearedActionKeys(
   baseline: Record<string, string[]> | undefined,
   simulated: Record<string, string[]> | undefined

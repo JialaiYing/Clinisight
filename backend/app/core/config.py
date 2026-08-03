@@ -7,17 +7,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
-# Matches http(s)://<private-LAN-IP>[:port] so the demo also works from a
-# phone/laptop on the same Wi-Fi as the host machine, not just localhost.
-# Also allows Vercel preview/production hosts for deployed demos.
+# Localhost, private LAN IPs, and *.vercel.app (so preview URLs work without
+# updating the static list every time).
 _CORS_ORIGIN_RE = re.compile(
     r"^https?://(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|"
     r"192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$"
     r"|^https://[\w-]+\.vercel\.app$"
 )
-
-# Back-compat alias for imports that still use the old name.
-_LAN_ORIGIN_RE = _CORS_ORIGIN_RE
 
 
 class Settings(BaseSettings):
@@ -27,8 +23,7 @@ class Settings(BaseSettings):
     scaler_path: Path = BACKEND_ROOT / "artifacts" / "scaler.joblib"
     calibrator_path: Path = BACKEND_ROOT / "artifacts" / "calibrator.joblib"
     metrics_path: Path = BACKEND_ROOT / "artifacts" / "metrics.json"
-    # Override in production with a JSON list, e.g.
-    # CORS_ORIGINS=["https://clinisight.vercel.app","http://localhost:3000"]
+    # Optional JSON override, e.g. CORS_ORIGINS=["https://example.com"]
     cors_origins: list[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",

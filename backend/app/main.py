@@ -12,7 +12,7 @@ from app.services.inference import inference_service
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # Warm model + scaler (+ calibrator if present) once so requests don't pay load cost.
+    # Load once at startup so the first request isn't paying cold-load cost.
     inference_service.load(
         settings.model_path,
         settings.scaler_path,
@@ -30,8 +30,6 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    # Regex covers LAN demos and *.vercel.app so deployed frontends work
-    # without editing the static allow-list for every preview URL.
     allow_origin_regex=_CORS_ORIGIN_RE.pattern,
     allow_credentials=True,
     allow_methods=["*"],

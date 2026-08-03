@@ -1,4 +1,4 @@
-"""Model-faithful feature attributions via Captum Integrated Gradients."""
+"""Captum Integrated Gradients attributions for each ADE outcome."""
 
 from __future__ import annotations
 

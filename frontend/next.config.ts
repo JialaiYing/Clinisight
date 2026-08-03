@@ -1,11 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Next.js blocks cross-origin dev requests (HMR, RSC fetches) by default.
-  // Without this, loading the app from another device on the LAN (e.g.
-  // http://10.0.0.4:3000) compiles fine but never fully hydrates, so clicks
-  // silently do nothing. Wildcards cover common private ranges so this
-  // keeps working if the machine's LAN IP changes (DHCP).
+  // Allow LAN hosts in dev so phones/other machines can load the app with HMR.
   allowedDevOrigins: [
     "10.0.0.4",
     "10.*.*.*",

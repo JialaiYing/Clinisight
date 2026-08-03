@@ -87,8 +87,6 @@ export function WhatIfSimulator({
   );
 
   useEffect(() => {
-    // Nothing to compare yet; render already gates all simulated-result UI on
-    // hasChanges, so no state to clear here.
     if (!hasChanges) return;
 
     const id = ++requestId.current;

@@ -20,7 +20,7 @@ import {
   patientFormSchema,
   type PatientFormValues,
 } from "@/lib/validation";
-import { defaultPatientValues } from "@/lib/personas";
+import { blankPatientValues } from "@/lib/personas";
 import { AlertCircle, Loader2 } from "lucide-react";
 
 type NumericField = Exclude<
@@ -52,13 +52,13 @@ interface PatientFormProps {
   onSubmitPatient: (values: PatientFormValues) => void;
   isSubmitting: boolean;
   submitError: string | null;
-  /** Values to load into the form (demo case / history). */
+  /** Demo case / history values to load. */
   defaultValues?: PatientFormValues;
-  /** Bump this to remount/reset when loading a demo case or history entry. */
+  /** Bump to remount after loading a demo or history entry. */
   resetSignal?: number;
-  /** Fires once the user changes any field away from the loaded defaults. */
+  /** Fires when the user edits away from the loaded defaults. */
   onUserEdit?: () => void;
-  /** Wipes every field back to blank. */
+  /** Clear every field. */
   onClear?: () => void;
 }
 
@@ -66,13 +66,13 @@ export function PatientForm({
   onSubmitPatient,
   isSubmitting,
   submitError,
-  defaultValues = defaultPatientValues,
+  defaultValues = blankPatientValues,
   resetSignal = 0,
   onUserEdit,
   onClear,
 }: PatientFormProps) {
-  // Remount on demo/history load so registered inputs always pick up new values.
-  // Clone so RHF never shares mutable state with persona constants.
+  // Remount when a demo/history load bumps resetSignal. Clone values so
+  // react-hook-form doesn't mutate the shared persona objects.
   return (
     <PatientFormInner
       key={resetSignal}
@@ -115,7 +115,7 @@ function PatientFormInner({
 
   const notifiedDirty = useRef(false);
 
-  // defaultValue avoids a first-paint undefined that crashes Radix Select on remount.
+  // defaultValue avoids a first-paint undefined that crashes Radix Select.
   const sex =
     useWatch({ control, name: "sex", defaultValue: defaultValues.sex }) ??
     defaultValues.sex ??
@@ -238,10 +238,7 @@ function PatientFormInner({
 
   return (
     <div id="patient-form">
-      {/*
-        Not a <form>: Next.js App Router + native submit (and button-default-submit
-        from Radix Checkbox/Select) was navigating to /?age=&… and wiping the page.
-      */}
+      {/* Div instead of <form>: native submit was rewriting the URL and wiping state. */}
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-base font-semibold tracking-tight text-foreground">
           Patient details

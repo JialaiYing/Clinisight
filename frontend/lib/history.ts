@@ -26,7 +26,7 @@ function readHistory(): HistoryEntry[] {
     const parsed = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) return [];
     const valid = (parsed as HistoryEntry[]).filter(isCompatibleHistoryEntry);
-    // Drop legacy entries (pre-drug-list patient schema) so the UI does not crash.
+    // Drop legacy entries that don't match the current patient schema.
     if (valid.length !== parsed.length) {
       writeHistory(valid);
     }
@@ -53,7 +53,7 @@ function writeHistory(entries: HistoryEntry[]): void {
   try {
     window.localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
   } catch {
-    // Storage full or blocked (private browsing); just keep this in memory for the tab.
+    // Quota exceeded or private browsing; keep working for this tab only.
   }
 }
 
@@ -76,11 +76,11 @@ function writeTrash(entries: TrashEntry[]): void {
   try {
     window.localStorage.setItem(TRASH_KEY, JSON.stringify(entries));
   } catch {
-    // Storage full or blocked (private browsing); just keep this in memory for the tab.
+    // Quota exceeded or private browsing; keep working for this tab only.
   }
 }
 
-/** Drops trash entries past the retention window and persists the cleanup. */
+/** Remove trash older than the retention window. */
 function purgeExpiredTrash(entries: TrashEntry[]): TrashEntry[] {
   const cutoff = Date.now() - TRASH_RETENTION_MS;
   return entries.filter((entry) => new Date(entry.deletedAt).getTime() > cutoff);
@@ -116,7 +116,7 @@ export function addHistoryEntry(
   return next;
 }
 
-/** Moves a single result out of the active log and into the recycle bin. */
+/** Soft-delete one history entry into trash. */
 export function deleteHistoryEntry(id: string): HistoryAndTrash {
   const history = readHistory();
   const target = history.find((entry) => entry.id === id);
@@ -132,7 +132,7 @@ export function deleteHistoryEntry(id: string): HistoryAndTrash {
   return { history: nextHistory, trash: nextTrash };
 }
 
-/** Moves every active result into the recycle bin at once. */
+/** Soft-delete the whole history into trash. */
 export function clearHistory(): HistoryAndTrash {
   const history = readHistory();
   const deletedAt = new Date().toISOString();
@@ -145,7 +145,7 @@ export function clearHistory(): HistoryAndTrash {
   return { history: [], trash: nextTrash };
 }
 
-/** Pulls a result back out of the recycle bin into the active log. */
+/** Move one trash entry back into history. */
 export function restoreTrashEntry(id: string): HistoryAndTrash {
   const trash = purgeExpiredTrash(readTrash());
   const target = trash.find((entry) => entry.id === id);
@@ -167,7 +167,7 @@ export function restoreTrashEntry(id: string): HistoryAndTrash {
   return { history: nextHistory, trash: nextTrash };
 }
 
-/** Immediately removes one entry from the recycle bin, skipping the retention window. */
+/** Hard-delete one trash entry (skips the retention window). */
 export function permanentlyDeleteTrashEntry(id: string): TrashEntry[] {
   const nextTrash = purgeExpiredTrash(readTrash()).filter((entry) => entry.id !== id);
   writeTrash(nextTrash);

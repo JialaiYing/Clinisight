@@ -26,7 +26,7 @@ export interface PatientInput {
   liver_disease: boolean;
   heart_failure: boolean;
 
-  /** Curated high-risk inpatient drug IDs. */
+  /** Drug IDs from the curated inpatient list. */
   medications: string[];
   num_concurrent_meds: number;
 }
@@ -34,11 +34,11 @@ export interface PatientInput {
 export type OverallRiskLevel = "low" | "moderate" | "high";
 export type ConfidenceLevel = "low" | "moderate" | "high";
 
-/** Signed model attribution from Captum Integrated Gradients. */
+/** One Captum attribution row for the UI. */
 export interface AttributionItem {
   feature: string;
   feature_key: string;
-  /** Positive → increased predicted ADE risk; negative → decreased. */
+  /** Positive pushes ADE risk up; negative pushes it down. */
   contribution: number;
 }
 
@@ -50,13 +50,13 @@ export interface InteractionAlert {
 export interface PredictionResponse {
   risks: Record<string, number>;
   explanations: Record<string, string[]>;
-  /** Present for elevated ADEs; may be missing on older cached history entries. */
+  /** Elevated ADEs only; older history rows may omit this. */
   recommendations?: Record<string, string[]>;
-  /** Model-faithful drivers; may be missing on older cached history entries. */
+  /** Captum drivers; older history rows may omit this. */
   attributions?: Record<string, AttributionItem[]>;
   interaction_alerts?: InteractionAlert[];
   overall_risk_level: OverallRiskLevel;
-  /** Decisiveness of probabilities; may be missing on older cached history. */
+  /** How decisive the probabilities look; older history may omit this. */
   confidence?: ConfidenceLevel;
   calibration_applied?: boolean;
   disclaimer: string;
