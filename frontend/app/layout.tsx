@@ -17,6 +17,13 @@ export const metadata: Metadata = {
   title: "Clinisight | Clinical ADE Predictor",
   description:
     "Estimate a patient's risk of medication-related complications using a model trained on realistic synthetic patient data.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/Clinisight_logo.png", type: "image/png" },
+    ],
+    apple: "/Clinisight_logo.png",
+  },
 };
 
 export default function RootLayout({
